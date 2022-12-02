@@ -798,11 +798,44 @@ static void do_window_swap_proxy(char *message)
     int order;
     unpack(message, order);
 
-    CFTypeRef transaction = SLSTransactionCreate(_connection);
-    SLSTransactionOrderWindow(transaction, b_wid, order, a_wid);
-    SLSTransactionSetWindowSystemAlpha(transaction, a_wid, alpha);
-    SLSTransactionCommit(transaction, 0);
-    CFRelease(transaction);
+    if (order == 1) {
+        //
+        // @hack
+        // :ArtificialDelay
+        //
+        // TODO(koekeishiya): .. On macOS Ventura 13.0.0-1 we **sometimes** get a visual flicker
+        // when using the SLSTransaction function to group multiple calls into an atomic transaction.
+        // This used to work just fine on both macOS Big Sur and macOS Monterey.
+        //
+        // Instead we simply call CGSOrderWindow (equivalent to SLSOrderWindow) to adjust the window order,
+        // followed by a separate call to set the system alpha. It doesn't really matter at this point that
+        // these operations are transactional, as we care about the window order changing **before** setting
+        // alpha. We use a call to usleep to give the system some time to process our order window request..
+        //
+
+        CGSOrderWindow(_connection, b_wid, order, a_wid);
+        usleep(10000);
+
+        CFTypeRef transaction = SLSTransactionCreate(_connection);
+        SLSTransactionSetWindowSystemAlpha(transaction, a_wid, alpha);
+        SLSTransactionCommit(transaction, 1);
+        CFRelease(transaction);
+    } else {
+        //
+        // @hack
+        // :ArtificialDelay
+        //
+        // TODO(koekeishiya): The inverse of the above operation..
+        //
+
+        CFTypeRef transaction = SLSTransactionCreate(_connection);
+        SLSTransactionSetWindowSystemAlpha(transaction, a_wid, alpha);
+        SLSTransactionCommit(transaction, 1);
+        CFRelease(transaction);
+
+        usleep(10000);
+        CGSOrderWindow(_connection, b_wid, order, a_wid);
+    }
 }
 
 static void do_window_order(char *message)

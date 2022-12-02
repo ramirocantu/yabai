@@ -511,7 +511,7 @@ void window_manager_resize_window(struct window *window, float width, float heig
     CFRelease(size_ref);
 }
 
-static void window_manager_create_window_proxy(int animation_connection, struct window_proxy *proxy)
+static void window_manager_create_window_proxy(int animation_connection, struct window_proxy *proxy, uint32_t wid)
 {
     if (!proxy->image) return;
 
@@ -576,7 +576,7 @@ void *window_manager_animate_window_list_thread_proc(void *data)
     });
 
     pthread_mutex_lock(&g_window_manager.window_animations_lock);
-    SLSDisableUpdate(context->animation_connection);
+    // SLSDisableUpdate(context->animation_connection);
     for (int i = 0; i < animation_count; ++i) {
         if (context->animation_list[i].skip) continue;
 
@@ -584,7 +584,7 @@ void *window_manager_animate_window_list_thread_proc(void *data)
         scripting_addition_swap_window_proxy(context->animation_list[i].wid, context->animation_list[i].proxy.id, 1.0f, 0);
         window_manager_destroy_window_proxy(context->animation_connection, &context->animation_list[i].proxy);
     }
-    SLSReenableUpdate(context->animation_connection);
+    // SLSReenableUpdate(context->animation_connection);
     pthread_mutex_unlock(&g_window_manager.window_animations_lock);
 
     SLSReleaseConnection(context->animation_connection);
@@ -629,7 +629,7 @@ void window_manager_animate_window_list_async(struct window_capture *window_list
     }
 
     pthread_mutex_lock(&g_window_manager.window_animations_lock);
-    SLSDisableUpdate(context->animation_connection);
+    // SLSDisableUpdate(context->animation_connection);
     for (int i = 0; i < buf_len(context->animation_list); ++i) {
         struct window_animation *existing_animation = table_find(&g_window_manager.window_animations_table, &context->animation_list[i].wid);
         if (existing_animation) {
@@ -644,26 +644,43 @@ void window_manager_animate_window_list_async(struct window_capture *window_list
             context->animation_list[i].proxy.image             = CFRetain(existing_animation->proxy.image);
             __asm__ __volatile__ ("" ::: "memory");
 
-            window_manager_create_window_proxy(context->animation_connection, &context->animation_list[i].proxy);
+            window_manager_create_window_proxy(context->animation_connection, &context->animation_list[i].proxy, context->animation_list[i].wid);
 
-            CFTypeRef transaction = SLSTransactionCreate(context->animation_connection);
-            SLSTransactionOrderWindow(transaction, context->animation_list[i].proxy.id, 1, context->animation_list[i].wid);
-            SLSTransactionOrderWindow(transaction, existing_animation->proxy.id, 0, 0);
-            SLSTransactionCommit(transaction, 0);
-            CFRelease(transaction);
+            SLSOrderWindow(context->animation_connection, context->animation_list[i].proxy.id, 1, context->animation_list[i].wid);
+
+            //
+            // @hack
+            // :ArtificialDelay
+            //
+            // TODO(koekeishiya): .. On macOS Ventura 13.0.0-1 we **allways** get a visual flicker here
+            // when using the SLSTransaction function to group multiple calls into an atomic transaction.
+            // This used to work just fine on both macOS Big Sur and macOS Monterey.
+            //
+            // Instead we simply call SLSOrderWindow to adjust the window order, followed by a another separate call
+            // to set the order of the second window. It doesn't really matter at this point that these operations
+            // are not transactional, as we care about the first window order changing **before** setting the second
+            // window order. We use a call to usleep to give the system some time to process our first order request..
+            //
+            // This is obviously not a good solution, and will probably not work all systems and fail sporadically
+            // depending on variance in available resource usage or other work that is happening.
+            //
+
+            usleep(10000);
+
+            SLSOrderWindow(context->animation_connection, existing_animation->proxy.id, 0, 0);
 
             window_manager_destroy_window_proxy(context->animation_connection, &existing_animation->proxy);
         } else {
             SLSGetWindowLevel(context->animation_connection, context->animation_list[i].wid, &context->animation_list[i].proxy.level);
             SLSGetWindowBounds(context->animation_connection, context->animation_list[i].wid, &context->animation_list[i].proxy.frame);
             context->animation_list[i].proxy.image = SLSHWCaptureWindowList(context->animation_connection, &context->animation_list[i].wid, 1, (1 << 11) | (1 << 8));
-            window_manager_create_window_proxy(context->animation_connection, &context->animation_list[i].proxy);
+            window_manager_create_window_proxy(context->animation_connection, &context->animation_list[i].proxy, context->animation_list[i].wid);
             scripting_addition_swap_window_proxy(context->animation_list[i].wid, context->animation_list[i].proxy.id, 0.0f, 1);
         }
 
         table_add(&g_window_manager.window_animations_table, &context->animation_list[i].wid, &context->animation_list[i]);
     }
-    SLSReenableUpdate(context->animation_connection);
+    // SLSReenableUpdate(context->animation_connection);
     pthread_mutex_unlock(&g_window_manager.window_animations_lock);
 
     for (int i = 0; i < window_count; ++i) {

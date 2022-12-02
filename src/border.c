@@ -66,13 +66,22 @@ void border_hide_all(void)
 
 void border_redraw(struct window *window)
 {
-    uint8_t is_ordered_in = false;
-    SLSWindowIsOrderedIn(g_connection, window->border.id, &is_ordered_in);
+    //
+    // :Borders
+    //
+    // TODO(koekeishiya): Disabling connection updates affects *all of the  applications connections** globally.
+    // When we receive system events that causes window borders to refresh their position/size and redraw, having
+    // these calls will interfere with the animation system. Calling OrderWindow will also reset the system alpha
+    // which breaks animation of window borders completely.
+    //
 
-    if (is_ordered_in) {
-        SLSDisableUpdate(g_connection);
-        SLSOrderWindow(g_connection, window->border.id, 0, 0);
-    }
+    // uint8_t is_ordered_in = false;
+    // SLSWindowIsOrderedIn(g_connection, window->border.id, &is_ordered_in);
+
+    // if (is_ordered_in) {
+    //     SLSDisableUpdate(g_connection);
+    //     SLSOrderWindow(g_connection, window->border.id, 0, 0);
+    // }
 
     CGContextClearRect(window->border.context, window->border.frame);
     CGContextAddPath(window->border.context, window->border.path_ref);
@@ -85,10 +94,19 @@ void border_redraw(struct window *window)
 
     CGContextFlush(window->border.context);
 
-    if (is_ordered_in) {
-        SLSOrderWindow(g_connection, window->border.id, -1, window->id);
-        SLSReenableUpdate(g_connection);
-    }
+    //
+    // :Borders
+    //
+    // TODO(koekeishiya): Disabling connection updates affects *all of the  applications connections** globally.
+    // When we receive system events that causes window borders to refresh their position/size and redraw, having
+    // these calls will interfere with the animation system. Calling OrderWindow will also reset the system alpha
+    // which breaks animation of window borders completely.
+    //
+
+    // if (is_ordered_in) {
+    //     SLSOrderWindow(g_connection, window->border.id, -1, window->id);
+    //     SLSReenableUpdate(g_connection);
+    // }
 }
 
 void border_resize(struct window *window, CGRect frame)
@@ -103,13 +121,22 @@ void border_resize(struct window *window, CGRect frame)
     window->border.path = (CGRect) {{ 0.5f*g_window_manager.border_width, 0.5f*g_window_manager.border_width }, { frame.size.width - g_window_manager.border_width, frame.size.height - g_window_manager.border_width }};
     window->border.path_ref = CGPathCreateWithRoundedRect(window->border.path, cgrect_clamp_x_radius(window->border.path, g_window_manager.border_radius), cgrect_clamp_y_radius(window->border.path, g_window_manager.border_radius), NULL);
 
-    uint8_t is_ordered_in = false;
-    SLSWindowIsOrderedIn(g_connection, window->border.id, &is_ordered_in);
+    //
+    // :Borders
+    //
+    // TODO(koekeishiya): Disabling connection updates affects *all of the  applications connections** globally.
+    // When we receive system events that causes window borders to refresh their position/size and redraw, having
+    // these calls will interfere with the animation system. Calling OrderWindow will also reset the system alpha
+    // which breaks animation of window borders completely.
+    //
 
-    if (is_ordered_in) {
-        SLSDisableUpdate(g_connection);
-        SLSOrderWindow(g_connection, window->border.id, 0, 0);
-    }
+    // uint8_t is_ordered_in = false;
+    // SLSWindowIsOrderedIn(g_connection, window->border.id, &is_ordered_in);
+
+    // if (is_ordered_in) {
+    //     SLSDisableUpdate(g_connection);
+    //     SLSOrderWindow(g_connection, window->border.id, 0, 0);
+    // }
 
     SLSSetWindowShape(g_connection, window->border.id, 0.0f, 0.0f, window->border.region);
     CGContextClearRect(window->border.context, window->border.frame);
@@ -123,10 +150,19 @@ void border_resize(struct window *window, CGRect frame)
 
     CGContextFlush(window->border.context);
 
-    if (is_ordered_in) {
-        SLSOrderWindow(g_connection, window->border.id, -1, window->id);
-        SLSReenableUpdate(g_connection);
-    }
+    //
+    // :Borders
+    //
+    // TODO(koekeishiya): Disabling connection updates affects *all of the  applications connections** globally.
+    // When we receive system events that causes window borders to refresh their position/size and redraw, having
+    // these calls will interfere with the animation system. Calling OrderWindow will also reset the system alpha
+    // which breaks animation of window borders completely.
+    //
+
+    // if (is_ordered_in) {
+    //     SLSOrderWindow(g_connection, window->border.id, -1, window->id);
+    //     SLSReenableUpdate(g_connection);
+    // }
 }
 
 void border_move(struct window *window, CGRect frame)
